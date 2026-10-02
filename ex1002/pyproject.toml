@@ -7,7 +7,16 @@ authors = [
     { name = "rjsghk117", email = "rjsghk117@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "grandalf>=0.8",
+    "langchain>=1.4.3",
+    "langchain-openai>=1.6.7",
+    "langgraph>=1.2.12",
+    "openai>=3.23.0",
+    "pandas>=3.0.6",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.4",
+]
 
 [project.scripts]
 ex1002 = "ex1002:main"

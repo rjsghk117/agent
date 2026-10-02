@@ -6,4 +6,8 @@ def main() -> None:
 
     # from .mypy import ex_function
 
-    from .mypy import ex_oop
+    # from .mypy import ex_oop
+
+    # from .mygraph import mygraph
+
+    # from .page101 import page101
