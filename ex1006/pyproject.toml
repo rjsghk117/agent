@@ -1,0 +1,27 @@
+[project]
+name = "ex1006"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "rjsghk117", email = "rjsghk117@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "grandalf>=0.8",
+    "ipykernel>=7.4.0",
+    "langchain>=1.4.3",
+    "langchain-openai>=1.6.7",
+    "langchain-tavily>=0.2.18",
+    "langgraph>=1.2.13",
+    "pandas>=3.0.6",
+    "python-dotenv>=1.2.4",
+    "tools>=1.0.36",
+]
+
+[project.scripts]
+ex1006 = "ex1006:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
