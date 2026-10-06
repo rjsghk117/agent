@@ -6,3 +6,4 @@ openai
 pydantic
 grandalf
 langgraph
+langchain-tavily
