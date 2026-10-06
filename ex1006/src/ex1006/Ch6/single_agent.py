@@ -500,3 +500,17 @@ if __name__ == "__main__":
     import asyncio
     asyncio.run(astream())
 
+# ------------------------------------
+
+# 사용자 도구 정의하기
+# 도구의 설명을 docstring에서 추출하기
+from langchain.tools import tool
+
+@tool
+def multiply(a: int, b: int) -> int:
+    """Multiply two numbers."""
+    return a * b
+
+print(multiply.name)
+print(multiply.description)
+print(multiply.args)
