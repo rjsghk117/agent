@@ -7,3 +7,4 @@ grandalf
 langchain
 langchain-tavily
 tools
+langgraph-cli[inmem]
