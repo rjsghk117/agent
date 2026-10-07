@@ -213,3 +213,65 @@ if __name__ == "__main__":
 #     tools=[tool1, tool2],
 #     state_schema=CustomState
 # )
+
+# ---------------------------------------------
+
+# 계산기 도구 만들기
+@tool
+def calculator(a: int, b: int, operation: str) -> str:
+    """
+    간단한 계산기 도구입니다.
+    
+    Args:
+        a: 첫 번째 숫자
+        b: 두 번째 숫자
+        operation: 연산 종류 (add, subtract, multiply, divide)
+    """
+    if operation == "add":
+        result = a + b
+    elif operation == "subtract":
+        result = a - b
+    elif operation == "multiply":
+        result = a * b
+    elif operation == "divide":
+        result = a / b if b != 0 else "0으로 나눌 수 없습니다."
+    else:
+        return f"지원하지 않는 연산: {operation}"
+
+    return f"{a} {operation} {b} = {result}"
+
+tools = [calculator]
+
+# 모델을 동적으로 선택하는 미들웨어 만들기
+
+from dotenv import load_dotenv
+
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_agent
+from langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse
+
+load_dotenv()
+
+
+basic_model =  ChatOpenAI(model="gpt-4o-mini")
+advanced_model = ChatOpenAI(model="gpt-4o")
+
+@wrap_model_call
+def dynamic_model_selection(request: ModelRequest, handler) -> ModelResponse:
+    """대화 복잡도에 따라 모델을 동적으로 선택하는 미들웨어"""
+    message_count = len(request.state["messages"])
+    print(f"현재 대화 메시지 수: {message_count}")
+
+    if message_count > 10:
+        model = advanced_model
+        print("복잡한 대화 감지: 고급 모델(gpt-4o) 사용")
+    else:
+        model = basic_model
+
+    return handler(request.override(model=model))
+
+agent = create_agent(
+    model=basic_model,
+    tools=tools,
+    middleware=[dynamic_model_selection]
+)
