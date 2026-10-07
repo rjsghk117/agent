@@ -340,3 +340,33 @@ agent = create_agent(
     ]
 )
 
+# --------------------------------------
+
+# Runtime 컨텍스트를 여동하는 미들웨어 만들기
+from typing import TypedDict
+from langchain.agents import create_agent
+from langchain.agents.middleware import dynamic_prompt, ModelRequest
+
+class UserContext(TypedDict):
+    user_role: str # "expert" | "beginner"
+
+@dynamic_prompt
+def role_based_prompt(request: ModelRequest) -> str:
+    """사용자 역할에 따른 시스템 프롬프트 생성"""
+    role = request.runtime.context.get("user_role", "user")
+
+    if role == "expert":
+        return "전문 용어를 사용하여 상세하게 답변하세요."
+    elif role == "beginner":
+        return "쉬운 말로 간단하게 설명하세요."
+    return "친절하게 답변하세요."
+
+agent = create_agent(
+    model=model,
+    tools=[...],
+    middleware=[role_based_prompt],
+    context_schema=UserContext # Context 타입 지정
+)
+
+agent.invoke(query, context={"user_role": "expert"}) # 전문가용 답변
+agent.invoke(query, context={"user_role": "beginner"}) # 초보자용 답변
