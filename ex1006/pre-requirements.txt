@@ -8,3 +8,8 @@ langchain
 langchain-tavily
 tools
 langgraph-cli[inmem]
+pypdf
+langchain-community
+langchain-chroma
+retriever
+state

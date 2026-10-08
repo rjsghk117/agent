@@ -1,0 +1,4 @@
+typing
+langgraph
+python-dotenv
+grandalf

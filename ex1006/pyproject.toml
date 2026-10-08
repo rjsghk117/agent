@@ -11,12 +11,17 @@ dependencies = [
     "grandalf>=0.8",
     "ipykernel>=7.4.0",
     "langchain>=1.4.3",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.2",
     "langchain-openai>=1.6.7",
     "langchain-tavily>=0.2.18",
     "langgraph>=1.2.13",
     "langgraph-cli[inmem]>=0.4.32",
     "pandas>=3.0.6",
+    "pypdf>=6.19.0",
     "python-dotenv>=1.2.4",
+    "retriever>=3.1.0",
+    "state>=0.1.1.dev0",
     "tools>=1.0.36",
 ]
 

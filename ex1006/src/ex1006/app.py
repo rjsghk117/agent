@@ -9,4 +9,6 @@ def main() -> None:
 
     # from .Ch6 import single_agent_2
 
-    from .Ch6 import single_agent_1007
+    # from .Ch6 import single_agent_1007
+
+    from .Ch6 import single_agent_1008
