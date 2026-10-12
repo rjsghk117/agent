@@ -221,4 +221,177 @@ def decide_to_generate(state):
     score = chain.invoke({"question": question, "context": context})
     grade = score.binary_score
     if grade == "no":
-        "---DECISION: RETRIEVED DOCUMENT ARE NOT RELEVANT TO QUESTION, TRANSFORM QUERY---"
+        print(
+            "---DECISION: RETRIEVED DOCUMENT ARE NOT RELEVANT TO QUESTION, TRANSFORM QUERY---"
+        )
+        return "transform_query"
+    else:
+        print("---DECISION: GENERATE---")
+        return "generate"
+
+# 꼭 이해하고 넘어가기 > LLM의 응답 구조화를 위한 방식 with_structured_output
+
+# 응답을구조화하기 위한 스키마 정의하기
+# from pydantic import BaseModel, Field
+
+# class ResponseSchema(BaseModel):
+#     """이 클래스는 응답을 구조화하기 위한 예시 스키마입니다."""
+#     answer: str = Field(description="사용자 질문에 대한 응답 텍스트")
+#     followup_question: str = Field(description="사용자가 이어서 할 수 있는 확장 질문 텍스트")
+
+# with_structured_output을 사용하여 스키마 구조에 맞춰 답변 출력하기
+
+# model_with_structure = model.with_structured_output(ResponseSchema)
+# structured_output = model_with_structure.invoke("AI가 글을 쓸 때 사람이 쓴 글과 어떻게 다른가요?")
+# structured_output
+
+# 출력 스키마를 도구로 활용하기
+# model_with_tools = model.bind_tools(ResponseSchema)
+# ai_msg = model_with_tools.invoke("AI가 글을 쓸 때 사람이 쓴 글과 어떻게 다른가요?")
+# ai_msg
+
+# 도구의 인자 추출하기
+# ai_msg.tool_calls[0]["args"]
+
+# 도구 호출 결과를 파이단틱 객체로 파싱하기
+# pydantic_object = ResponseSchema.model_validate(ai_msg.tool_calls[0]["args"])
+# pydantic_object
+
+# ---------------------------------------------------
+
+# Query 재작성 노드 만들기
+def transform_query(state: AgentState):
+    """
+    더 나은 질문을 생성하기 위해 쿼리를 변환합니다
+    
+    Args:
+        state (dict): 현재 그래프 상태
+
+    Returns:
+        state (dict): 재구성된 질문으로 question 키를 업데이트
+    """
+
+    print("----- [TRANSFORM QUERY] -----")
+    question = state["question"]
+
+    system = """
+    당신은 질문을 다시 작성하는 전문가입니다. 입력된 질문을 벡터 저장소 검색에 최적화된 더 나은 버전으로 변환하세요.
+    입력을 살펴보고 질문의 핵심적인 의미와 의도를 파악하여 개선된 질문을 만들어주세요."""
+    re_write_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system),
+            (
+                "user",
+                "다음은 초기 질문입니다: \n\n (question) \n 한국어로 개선된 질문을 작성해주세요."
+            ),
+        ]
+    )
+
+    question_rewriter = re_write_prompt | llm
+
+    better_question = question_rewriter.invoke({"question": question})
+    return {
+        "question": better_question.content,
+        "messages": [better_question],
+        "retry_nums": state["retry_num"] + 1 if state.get("retry_num") else 1
+    }
+
+# 검색된 문서를 기반으로 답변을 생성하는 노드 만들기
+def generate(state: AgentState):
+    """
+    검색된 문서와 질문을 기반으로 답변을 생성합니다.
+    """
+    print("----- [GENERATE] -----")
+    question = state["question"]
+    context = state["context"]
+
+    retry_num = state.get("retry_num", 0)
+
+    if retry_num >= 3:
+        rag_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """당신은 검색된 문서를 통해 해결할 수 있는 질문을 추출하는 어시스턴트입니다.
+                    사용자가 해결하고자 한 질문이 있었으나 검색 컨텍스트가 충분하지 않은 상황이므로,
+                    주어진 검색 결과 내에서 답변할 수 있는 질문을 새롭게 작성해 나열하세요.
+                    사용자에게 질문에 대한 답변을 하지 못함에 양해를 구하고, 다른 질문의 기회와
+                    선택지를 제공하는 친절한 가이드를 하세요.
+                    """,
+                ),
+                (
+                    "user",
+                    "질문: {question} \n\n검색 결과: {context} \n\n답변:",
+                ),
+            ]
+        )
+    else:
+        rag_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    """당신은 질문-답변 업무를 수행하는 어시스턴트입니다. 검색된 컨텍스트를 사용하여 질문에 답변하세요.
+                    답변을 모르는 경우, 모른다고 말하세요.
+                    답변은 간결하게 작성하고, 반드시 답변의 출처(페이지 번호)를 함께 명시해주세요.
+                    
+                    """,
+                ),
+                (
+                    "user",
+                    "질문: {question} \n\n검색 결과: {context} \n\n답변:",
+                ),
+            ]
+        )
+
+    rag_chain = rag_prompt | llm
+    response = rag_chain.invoke({"question": question, "context": context})
+    return {"question": question, "answer": response.content, "messages": [response]}
+
+# 답변의 환각 여부르 평가하는 라우팅 함수 만들기
+class GradeHallucinations(BaseModel):
+    """생성된 답변의 환각 여부를 판단하기 위한 점수 스키마"""
+
+    binary_score: str = Field(
+        description = "답변이 사실에 근거하는지 여부, 'yes' 또는 'no'"
+    )
+
+def check_hallucinations(state):
+    """
+    생성된 답변이 문서에 근거하고 질문에 답하는지 판단합니다.
+    """
+
+    print("----- CHECK HALLUCINATIONS -----")
+    question = state["question"]
+    context = state["context"]
+    answer = state["answer"]
+
+    structured_llm = llm.with_structured_output(GradeHallucinations)
+
+    system = """당신은 LLM이 생성한 답변이 검색된 사실들에 근거하고 있는지 평가하는 평가자입니다.
+    'yes' 또는 'no'의 이진 점수를 제공하세요. 'yes'는 답변이 사실들에 근거하고 있음을 의미합니다."""
+    hallucination_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", system),
+            ("user", "질문: {question} \n\n 사실 집합: \n\n {context} \n\n LLM 생성 답변: {generation}")
+        ]
+    )
+
+    hallucination_grader = hallucination_prompt | structured_llm
+
+    score = hallucination_grader.invoke(
+        {"question": question, "context": context, "generation": answer}
+    )
+    grade = score.binary_score
+    if grade == "yes":
+        print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
+        return "support"
+    else:
+        print("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE-TRY---")
+        return "not supported"
+
+# RAG 에이전트를 위한 그래프 만들기
+from langgraph.prebuilt import tools_condition
+from langgraph.graph import StateGraph, MessagesState, START, END
+
+from state import AgentState
+from nodes import chatbot, 
